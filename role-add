@@ -1,5 +1,11 @@
 import discord
 import os
+from dotenv import load_dotenv  # 👈 これを追加
+
+# .envファイルから環境変数を読み込む
+load_dotenv()  # 👈 これを追加
+
+# 1. 必要なインテントの設定...（以下は元のコードと同じ）
 
 # 1. 必要なインテントの設定（メンバー情報とメッセージ内容の取得に必須）
 intents = discord.Intents.default()
