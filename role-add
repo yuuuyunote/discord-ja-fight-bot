@@ -1,0 +1,75 @@
+import discord
+import os
+
+# 1. 必要なインテントの設定（メンバー情報とメッセージ内容の取得に必須）
+intents = discord.Intents.default()
+intents.members = True 
+intents.messages = True 
+intents.message_content = True 
+
+client = discord.Client(intents=intents)
+
+# ==========================================
+# ⚠️ 以下のロールIDを、付与したい実際のIDに変更してください
+TARGET_ROLE_ID = 1522063815255134298
+# ==========================================
+
+# 既に処理したユーザーを一時的に記録するセット（処理の高速化用）
+spoken_users = set()
+
+@client.event
+async def on_ready():
+    print(f'ログイン完了: {client.user.name}')
+
+@client.event
+async def on_message(message):
+    # Bot自身の発言は無視
+    if message.author.bot:
+        return
+
+    # DMなどのサーバー外メッセージは無視
+    if not isinstance(message.author, discord.Member):
+        return
+
+    # 【重要仕様】Discord標準の入室メッセージなどのシステムメッセージを除外
+    # 通常のテキストメッセージのみを処理の対象とする
+    if message.type != discord.MessageType.default:
+        return
+
+    # すでに発言済みとして記録されている場合はスキップ
+    if message.author.id in spoken_users:
+        return
+
+    # ユーザーがすでに指定のロールを持っているか確認（過去に発言済みかどうかの確認）
+    has_role = any(role.id == TARGET_ROLE_ID for role in message.author.roles)
+    
+    if not has_role:
+        try:
+            # サーバーのロール一覧から対象のロールを取得
+            role_to_assign = message.guild.get_role(TARGET_ROLE_ID)
+            
+            if role_to_assign:
+                # 初回発言者にロールを非同期（async/await）で付与
+                await message.author.add_roles(role_to_assign)
+                print(f'{message.author.display_name} に初回発言ロールを付与しました。')
+                
+                # 次回以降スキップするために記録
+                spoken_users.add(message.author.id)
+            else:
+                print(f'エラー: 指定されたID ({TARGET_ROLE_ID}) のロールが見つかりません。')
+                
+        except discord.Forbidden:
+            print('エラー: ロールを付与する権限がありません。Botの権限とロールの順位を確認してください。')
+        except discord.HTTPException as e:
+            print(f'エラー: 通信エラーが発生しました: {e}')
+    else:
+        # すでにロールを持っている場合でも、次回以降の判定を省くために記録
+        spoken_users.add(message.author.id)
+
+# Pellaなどのホスティング環境では、環境変数からトークンを取得するのが安全です
+TOKEN = os.environ.get('DISCORD_TOKEN')
+
+if TOKEN is None:
+    print("エラー: 環境変数 'DISCORD_TOKEN' が設定されていません。")
+else:
+    client.run(TOKEN)
